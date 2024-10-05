@@ -96,6 +96,43 @@ df_task2 = (
     .limit(10)
 )
 
+# Task 3. Вывести категорию фильмов, на которую потратили больше всего денег.
+# select category.name, sum(payment.amount) as spent_on_category
+# from category
+# inner join film_category on category.category_id = film_category.category_id
+# inner join inventory on film_category.film_id = inventory.film_id
+# inner join rental on inventory.inventory_id = rental.inventory_id
+# inner join payment on rental.rental_id = payment.rental_id
+# group by category.category_id, category.name
+# order by spent_on_category desc
+# limit 1
+
+df_task3 = (
+    df_category.join(
+        df_film_category,
+        df_category["category_id"] == df_film_category["category_id"],
+        how="inner",
+    )
+    .join(
+        df_inventory,
+        df_film_category["film_id"] == df_inventory["film_id"],
+        how="inner",
+    )
+    .join(
+        df_rental,
+        df_inventory["inventory_id"] == df_rental["inventory_id"],
+        how="inner",
+    )
+    .join(
+        df_payment,
+        df_rental["rental_id"] == df_payment["rental_id"],
+        how="inner",
+    )
+    .groupby(df_category["name"].alias("category_name"))
+    .agg(F.sum(df_payment["amount"]).alias("spent_on_category"))
+    .orderBy(F.col("spent_on_category"), ascending=False)
+    .limit(1)
+)
 
 # Tasks output
 print(
@@ -109,3 +146,8 @@ print(
 df_task2.select("first_name", "last_name", "actor_film_borrow_count").show(
     truncate=False
 )
+
+print(
+    "Task 3. Вывести категорию фильмов, на которую потратили больше всего денег."
+)
+df_task3.show(truncate=False)
