@@ -125,6 +125,16 @@ df_task3 = (
     .limit(1)
 )
 
+# Task 4. Вывести названия фильмов, которых нет в inventory. Написать запрос без использования оператора IN.
+
+df_task4 = (
+    df_film.join(
+        df_inventory, df_film["film_id"] == df_inventory["film_id"], how="left"
+    )
+    .filter(F.col("inventory_id").isNull())
+    .select("title")
+)
+
 # Tasks output
 print(
     "Task 1. Вывести количество фильмов в каждой категории, отсортировать по убыванию."
@@ -142,3 +152,8 @@ print(
     "Task 3. Вывести категорию фильмов, на которую потратили больше всего денег."
 )
 df_task3.show(truncate=False)
+
+print(
+    "Task 4. Вывести названия фильмов, которых нет в inventory. Написать запрос без использования оператора IN."
+)
+df_task4.show(df_task4.count(), truncate=False)
