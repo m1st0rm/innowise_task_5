@@ -1,4 +1,4 @@
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, Window
 from pyspark.sql import functions as F
 
 
@@ -125,7 +125,8 @@ df_task3 = (
     .limit(1)
 )
 
-# Task 4. Вывести названия фильмов, которых нет в inventory. Написать запрос без использования оператора IN.
+# Task 4. Вывести названия фильмов, которых нет в inventory.
+# Написать запрос без использования оператора IN.
 
 df_task4 = (
     df_film.join(
@@ -133,6 +134,51 @@ df_task4 = (
     )
     .filter(F.col("inventory_id").isNull())
     .select("title")
+)
+
+# Task 5. Вывести топ 3 актеров, которые больше всего появлялись в фильмах в категории “Children”.
+# Если у нескольких актеров одинаковое кол-во фильмов, вывести всех.
+
+df_task5_filtered_films = (
+    df_film.join(
+        df_film_category,
+        df_film["film_id"] == df_film_category["film_id"],
+        how="inner",
+    )
+    .join(
+        df_category,
+        df_film_category["category_id"] == df_category["category_id"],
+        how="inner",
+    )
+    .filter(df_category["name"].like("%Children%"))
+    .select(df_film["film_id"])
+)
+
+df_task5_actor_appearances = (
+    df_actor.join(
+        df_film_actor,
+        df_actor["actor_id"] == df_film_actor["actor_id"],
+        how="inner",
+    )
+    .join(
+        df_task5_filtered_films,
+        df_film_actor["film_id"] == df_task5_filtered_films["film_id"],
+        how="inner",
+    )
+    .groupBy(
+        df_actor["actor_id"], df_actor["first_name"], df_actor["last_name"]
+    )
+    .agg(F.count("*").alias("appearances_count"))
+)
+
+windowSpec_task5 = Window.orderBy(F.desc("appearances_count"))
+
+df_task5_ranked_actors = df_task5_actor_appearances.withColumn(
+    "actor_rank", F.dense_rank().over(windowSpec_task5)
+)
+
+df_task5 = df_task5_ranked_actors.filter(F.col("actor_rank") <= 3).orderBy(
+    F.col("appearances_count").desc()
 )
 
 # Tasks output
@@ -154,6 +200,15 @@ print(
 df_task3.show(truncate=False)
 
 print(
-    "Task 4. Вывести названия фильмов, которых нет в inventory. Написать запрос без использования оператора IN."
+    "Task 4. Вывести названия фильмов, которых нет в inventory. "
+    "Написать запрос без использования оператора IN."
 )
 df_task4.show(df_task4.count(), truncate=False)
+
+print(
+    "Task 5. Вывести топ 3 актеров, которые больше всего появлялись в фильмах в категории “Children”. "
+    "Если у нескольких актеров одинаковое кол-во фильмов, вывести всех."
+)
+df_task5.select("first_name", "last_name", "appearances_count").show(
+    df_task5.count(), truncate=False
+)
