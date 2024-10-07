@@ -181,6 +181,128 @@ df_task5 = df_task5_ranked_actors.filter(F.col("actor_rank") <= 3).orderBy(
     F.col("appearances_count").desc()
 )
 
+# Task 6. Вывести города с количеством активных и неактивных клиентов (активный — customer.active = 1).
+# Отсортировать по количеству неактивных клиентов по убыванию.
+
+df_task6 = (
+    df_customer.join(
+        df_address,
+        df_customer["address_id"] == df_address["address_id"],
+        how="inner",
+    )
+    .join(df_city, df_address["city_id"] == df_city["city_id"], how="inner")
+    .groupby(df_city["city_id"], df_city["city"].alias("city_name"))
+    .agg(
+        F.sum(df_customer["active"]).alias("active_customers_count"),
+        (F.count("*") - F.sum(df_customer["active"])).alias(
+            "inactive_customers_count"
+        ),
+    )
+    .orderBy(F.col("inactive_customers_count"), ascending=False)
+)
+
+# Вывести категорию фильмов, у которой самое большое кол-во часов суммарной аренды
+# в городах (customer.address_id в этом city), и которые начинаются на букву “a”.
+# То же самое сделать для городов в которых есть символ “-”. Написать все в одном запросе.
+
+df_task7_city_a = (
+    df_category.join(
+        df_film_category,
+        df_category["category_id"] == df_film_category["category_id"],
+        how="inner",
+    )
+    .join(
+        df_inventory,
+        df_film_category["film_id"] == df_inventory["film_id"],
+        how="inner",
+    )
+    .join(
+        df_rental,
+        df_inventory["inventory_id"] == df_rental["inventory_id"],
+        how="inner",
+    )
+    .join(
+        df_customer,
+        df_rental["customer_id"] == df_customer["customer_id"],
+        how="inner",
+    )
+    .join(
+        df_address,
+        df_customer["address_id"] == df_address["address_id"],
+        how="inner",
+    )
+    .join(df_city, df_address["city_id"] == df_city["city_id"], how="inner")
+    .filter(
+        (df_rental["rental_date"].isNotNull())
+        & (df_rental["return_date"].isNotNull())
+        & (df_city["city"].like("A%"))
+    )
+    .groupBy(
+        df_category["category_id"], df_category["name"].alias("city_name")
+    )
+    .agg(
+        (
+            F.sum(
+                F.unix_timestamp(df_rental["return_date"])
+                - F.unix_timestamp(df_rental["rental_date"])
+            )
+            / 3600
+        ).alias("category_summary_rental_time")
+    )
+    .orderBy(F.col("category_summary_rental_time").desc())
+    .limit(1)
+)
+
+df_task7_city_dash = (
+    df_category.join(
+        df_film_category,
+        df_category["category_id"] == df_film_category["category_id"],
+        how="inner",
+    )
+    .join(
+        df_inventory,
+        df_film_category["film_id"] == df_inventory["film_id"],
+        how="inner",
+    )
+    .join(
+        df_rental,
+        df_inventory["inventory_id"] == df_rental["inventory_id"],
+        how="inner",
+    )
+    .join(
+        df_customer,
+        df_rental["customer_id"] == df_customer["customer_id"],
+        how="inner",
+    )
+    .join(
+        df_address,
+        df_customer["address_id"] == df_address["address_id"],
+        how="inner",
+    )
+    .join(df_city, df_address["city_id"] == df_city["city_id"], how="inner")
+    .filter(
+        (df_rental["rental_date"].isNotNull())
+        & (df_rental["return_date"].isNotNull())
+        & (df_city["city"].like("%-%"))
+    )
+    .groupBy(
+        df_category["category_id"], df_category["name"].alias("city_name")
+    )
+    .agg(
+        (
+            F.sum(
+                F.unix_timestamp(df_rental["return_date"])
+                - F.unix_timestamp(df_rental["rental_date"])
+            )
+            / 3600
+        ).alias("category_summary_rental_time")
+    )
+    .orderBy(F.col("category_summary_rental_time").desc())
+    .limit(1)
+)
+
+df_task7 = df_task7_city_a.unionByName(df_task7_city_dash)
+
 # Tasks output
 print(
     "Task 1. Вывести количество фильмов в каждой категории, отсортировать по убыванию."
@@ -211,4 +333,21 @@ print(
 )
 df_task5.select("first_name", "last_name", "appearances_count").show(
     df_task5.count(), truncate=False
+)
+
+print(
+    "Task 6. Вывести города с количеством активных и неактивных клиентов (активный — customer.active = 1)."
+    "Отсортировать по количеству неактивных клиентов по убыванию."
+)
+df_task6.select(
+    "city_name", "active_customers_count", "inactive_customers_count"
+).show(df_task6.count(), truncate=False)
+
+print(
+    "Task 7. Вывести категорию фильмов, у которой самое большое кол-во часов суммарной аренды"
+    " в городах (customer.address_id в этом city), и которые начинаются на букву “a”."
+    "То же самое сделать для городов в которых есть символ “-”. Написать все в одном запросе."
+)
+df_task7.select("city_name", "category_summary_rental_time").show(
+    df_task7.count(), truncate=False
 )
